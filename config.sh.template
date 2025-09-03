@@ -1,0 +1,88 @@
+#!/bin/bash
+# Master Configuration for MailOps Orchestrator
+# All operational parameters are defined here
+
+# IP Distribution Settings
+MAX_IPS_PER_DOMAIN=30          # Maximum IPs allocated per domain (configurable)
+IP_DISTRIBUTION_MODE="even"     # Options: even | weighted | manual
+IP_ALLOCATION_FILE=""           # Path to custom allocation file if mode=manual
+MIN_IPS_PER_DOMAIN=1           # Minimum IPs per domain
+IP_SHUFFLE_ENABLED=true        # Shuffle IPs for non-sequential assignment
+
+# PowerMTA Settings
+PMTA_PORT=10025
+PMTA_CONFIG_PATH="/etc/pmta/config"
+PMTA_BACKUP_RETAIN_DAYS=30
+PMTA_MAX_MSG_RATE="5/m"        # Default rate limiting
+PMTA_TIMEOUT=30
+PMTA_FOLDER_STRUCTURE=true     # Create organized folder structure
+
+# DKIM Settings
+DKIM_KEY_SIZE=2048              # Key size in bits (1024, 2048, 4096)
+DKIM_SELECTOR="key1"            # DKIM selector
+DKIM_PRIVATE_PATH="/etc/pmta/domainkeys"
+DKIM_PUBLIC_PATH="/etc/publickeys"
+DKIM_BACKUP_KEYS=true          # Backup existing keys before generation
+
+# DNS Settings
+DNS_TTL=300                     # Default TTL for all records
+DNS_BATCH_SIZE=100             # Records per batch for API calls
+DNS_RETRY_ATTEMPTS=3           # Retry attempts for failed operations
+PTR_REQUEST_BATCH=50           # PTR records per request to ISP
+DNS_VERIFY_PROPAGATION=true    # Verify DNS propagation after creation
+
+# Database Settings
+DB_HOST="localhost"
+DB_NAME="mailwizz"
+DB_USER="mailwizz"
+DB_PASS=""                     # Set via environment variable
+DB_BATCH_SIZE=50              # Records per transaction
+DB_TRANSACTION_TIMEOUT=300     # Timeout in seconds
+DB_BACKUP_BEFORE_SYNC=true    # Backup database before changes
+
+# Mailbox Settings
+BOUNCE_PREFIX="bounce"         # Prefix for bounce mailboxes
+FBL_PREFIX="fbl"              # Prefix for FBL mailboxes
+MAILBOX_PATH="/var/mail/virtual"
+IMAP_PORT=143
+DOVECOT_USER="vmail"
+DOVECOT_GROUP="vmail"
+MAILBOX_QUOTA="1G"            # Quota per mailbox
+
+# Pool Naming Settings
+POOL_PREFIX="mailwizz"         # Prefix for pool names
+POOL_USE_TIMESTAMP=true        # Include timestamp in pool names
+POOL_SEPARATOR="_"             # Separator character
+POOL_TEMPLATE="${POOL_PREFIX}${POOL_SEPARATOR}\${DOMAIN}${POOL_SEPARATOR}\${TIMESTAMP}"
+
+# Quota Settings (MailWizz Delivery Servers)
+HOURLY_QUOTA=1000
+DAILY_QUOTA=10000
+MONTHLY_QUOTA=0               # 0 = unlimited
+PAUSE_AFTER_SEND=0            # Milliseconds to pause
+
+# Warmup Settings
+USE_WARMUP_PLAN=false         # Enable warmup plan assignment
+DEFAULT_WARMUP_PLAN_ID=""     # Default warmup plan ID
+
+# State Management
+STATE_DIR="./state"
+LOG_DIR="./logs"
+BACKUP_DIR="./backups"
+REPORT_DIR="./reports"
+DEBUG_MODE=false              # Enable debug logging
+
+# API Settings
+CLOUDFLARE_API_SLEEP=1        # Sleep between API calls
+CLOUDFLARE_ACCOUNTS_FILE="./cloudflare_accounts.json"
+
+# Validation Settings
+VALIDATE_DNS=true             # Validate DNS after creation
+VALIDATE_PMTA=true            # Validate PowerMTA configs
+VALIDATE_MAILBOX=true         # Validate mailbox creation
+VALIDATE_DATABASE=true        # Validate database entries
+
+# Enhanced Generator Settings
+ENHANCED_STYLES=15            # Number of naming styles to use
+ENHANCED_ENTROPY_POOLS=true  # Use expanded entropy pools
+ENHANCED_STATE_FILE="./state/used_names.json"

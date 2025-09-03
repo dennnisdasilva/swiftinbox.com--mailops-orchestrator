@@ -1,0 +1,10 @@
+domain,action,ip_range
+domain1.net,enable,6.6.6.0/24
+domain2.net,enable,6.6.6.0/24
+domain3.net,enable,6.6.6.0/24
+domain4.net,enable,6.6.6.0/24
+domain5.net,enable,6.6.6.0/24
+domain6.net,enable,6.6.6.0/24
+domain7.net,enable,6.6.6.0/24
+domain8.net,enable,6.6.6.0/24
+priority.io,enable,10.10.10.0/27

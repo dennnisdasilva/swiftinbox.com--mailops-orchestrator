@@ -1,0 +1,67 @@
+# GitSentry
+.repo_snapshots/
+*.gitsentry.backup
+.gitsentry/
+
+# State and temporary files
+state/*.json
+state/*.state
+state/used_names.json
+temp/*
+parsed/*
+generated/*
+!*/sample*
+!*/.gitkeep
+
+# Logs and reports
+logs/*.log
+reports/*.txt
+reports/*.json
+reports/*.html
+
+# Backup files
+backups/*
+*.backup
+*.bak
+
+# Sensitive data
+*.pem
+*.key
+mailbox_passwords.csv
+cloudflare_accounts.json
+config.local.sh
+config.sh
+project.conf
+
+# PowerMTA
+domainkeys/
+publickeys/
+/etc/pmta/
+
+# Database
+*.sql
+db_credentials.txt
+
+# Output files
+output/*
+updates.txt
+ptr_records.txt
+hostnames.zone
+dkim_keys.json
+
+# Test data
+test_*.txt
+test_*/
+
+# OS
+.DS_Store
+*.swp
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Keep directories
+!*/.gitkeep

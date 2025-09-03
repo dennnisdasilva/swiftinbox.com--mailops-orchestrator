@@ -1,0 +1,24 @@
+[project]
+name = mailops-orchestrator
+version = 1.0.0
+type = automation
+test_command = ./modules/test_suite.sh
+
+[rules]
+protect_branches = main,develop
+require_tests = true
+enforce_conventional_commits = true
+create_snapshots = true
+max_direct_commit_size = 10
+
+[workflow]
+default_base_branch = develop
+auto_stage_files = true
+push_after_commit = ask
+pull_before_push = true
+
+[testing]
+quick_tests_on_commit = false
+full_tests_on_push = true
+smoke_tests_on_deploy = true
+test_timeout = 300

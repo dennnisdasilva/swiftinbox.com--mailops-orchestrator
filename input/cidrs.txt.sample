@@ -1,0 +1,7 @@
+# CIDR blocks for enhanced generator
+# Format: network/mask,domain1,domain2,...
+# /24 blocks require exactly 8 domains
+# /27 blocks require exactly 1 domain
+
+6.6.6.0/24,domain1.net,domain2.net,domain3.net,domain4.net,domain5.net,domain6.net,domain7.net,domain8.net
+10.10.10.0/27,priority.io
