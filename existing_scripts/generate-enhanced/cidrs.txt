@@ -1,0 +1,17 @@
+# Sample CIDR blocks for enhanced A record generation
+# Format: network/mask,domain1,domain2,...
+# /24 blocks require exactly 8 domains
+# /27 blocks require exactly 1 domain
+
+# Production mail server blocks
+192.0.2.0/24,mail1.example.com,mail2.example.com,mx1.example.net,mx2.example.net,smtp1.example.org,smtp2.example.org,relay1.example.co,relay2.example.co
+
+198.51.100.0/24,sender1.testmail.com,sender2.testmail.com,out1.testmail.net,out2.testmail.net,mta1.testmail.org,mta2.testmail.org,bulk1.testmail.co,bulk2.testmail.co
+
+# Smaller block for specialized services
+203.0.113.0/27,priority.fastmail.io
+
+# Additional blocks
+10.1.1.0/24,mailer1.internal.net,mailer2.internal.net,smtp1.internal.org,smtp2.internal.org,relay1.internal.com,relay2.internal.com,mta1.internal.io,mta2.internal.io
+
+172.16.1.0/24,outbound1.corpmail.com,outbound2.corpmail.com,sender1.corpmail.net,sender2.corpmail.net,dispatch1.corpmail.org,dispatch2.corpmail.org,bulk1.corpmail.io,bulk2.corpmail.io
