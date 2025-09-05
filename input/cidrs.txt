@@ -1,4 +1,0 @@
-# Generated from input/new.csv - Wed Sep  3 19:10:11 EDT 2025
-
-6.6.6.0/24,domain1.net,domain2.net,domain3.net,domain4.net,domain5.net,domain6.net,domain7.net,domain8.net
-10.10.10.0/27,priority.io

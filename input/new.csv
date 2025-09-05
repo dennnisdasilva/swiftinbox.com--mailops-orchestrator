@@ -1,2 +1,2 @@
 action,ip_range,domain1,domain2,domain3,domain4,domain5,domain6,domain7,domain8
-add,192.168.1.0/24,mail1.example.com,mail2.example.com,mail3.example.com,mail4.example.com,mail5.example.com,mail6.example.com,mail7.example.com,mail8.example.com
+add,66.55.44.0/24,floridatidewatch.com,orbitalsync.net,pixelhatchery.org,zephyrforge.io,marinarastreams.com,quantaengine.dev,emberpulse.ai,nebulaatlas.co
