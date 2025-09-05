@@ -2,8 +2,8 @@
 # State management for tracking used names across script runs
 
 # Global variables for state management
-declare -A USED_NAMES
-declare -A SESSION_NAMES
+declare -gA USED_NAMES=()
+declare -gA SESSION_NAMES=()
 STATE_LOADED=false
 STATE_MODIFIED=false
 
@@ -16,69 +16,132 @@ state_load() {
         STATE_LOADED=true
         return 0
     fi
-
+    
     # Read existing names into associative array
     local json_content
     json_content=$(cat "$STATE_FILE")
-
+    
     # Parse used_names object
     local names
-    names=$(echo "$json_content" | jq -r '.used_names | to_entries[] | "\(.key)=\(.value)"' 2>/dev/null)
-
+    names=$(echo "$json_content" | jq -r '.used_names | to_entries[] | "\(.key)=\(.value)"' 2>/dev/null || true)
+    
     if [[ -n "$names" ]]; then
         while IFS='=' read -r key value; do
             USED_NAMES["$key"]="$value"
         done <<< "$names"
     fi
-
+    
     STATE_LOADED=true
-
+    
     # Log state info
     local total_names=$(echo "$json_content" | jq -r '.total_generated // 0')
     local last_run=$(echo "$json_content" | jq -r '.last_run // "never"')
-
-    echo ";; State loaded: ${#USED_NAMES[@]} existing names tracked" >&2
+    
+    # Safe way to get array count
+    local existing_count=0
+    if [[ ${#USED_NAMES[@]} -gt 0 ]]; then
+        existing_count=${#USED_NAMES[@]}
+    fi
+    
+    echo ";; State loaded: $existing_count existing names tracked" >&2
     echo ";; Last run: $last_run" >&2
     echo ";; Total generated all-time: $total_names" >&2
 }
 
-# Save state to JSON file
+# Save state to JSON file - NEW IMPLEMENTATION
 state_save() {
     if [[ "$STATE_MODIFIED" != "true" ]]; then
         return 0
     fi
-
-    # Merge session names into main tracking
-    for key in "${!SESSION_NAMES[@]}"; do
-        USED_NAMES["$key"]="${SESSION_NAMES[$key]}"
-    done
-
-    # Build JSON object
-    local json_obj='{"used_names": {}, "last_run": "", "total_generated": 0}'
-
-    # Add all used names
-    for key in "${!USED_NAMES[@]}"; do
-        local value="${USED_NAMES[$key]}"
-        json_obj=$(echo "$json_obj" | jq \
-            --arg k "$key" \
-            --arg v "$value" \
-            '.used_names[$k] = $v')
-    done
-
-    # Update metadata
-    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    local total=$((${#USED_NAMES[@]}))
-
-    json_obj=$(echo "$json_obj" | jq \
-        --arg ts "$timestamp" \
-        --arg total "$total" \
-        '.last_run = $ts | .total_generated = ($total | tonumber)')
-
-    # Write to file with pretty formatting
-    echo "$json_obj" | jq '.' > "$STATE_FILE"
-
-    echo ";; State saved: ${#SESSION_NAMES[@]} new names added this session" >&2
-    echo ";; Total names tracked: $total" >&2
+    
+    # Create temporary files for processing
+    local temp_file=$(mktemp)
+    local keys_file=$(mktemp)
+    
+    # First, dump all keys to a file to avoid array expansion issues
+    {
+        # Add existing USED_NAMES keys
+        for key in "${!USED_NAMES[@]}"; do
+            echo "$key"
+        done
+        
+        # Add new SESSION_NAMES keys (will be deduplicated by sort -u)
+        for key in "${!SESSION_NAMES[@]}"; do
+            echo "$key"
+        done
+    } | sort -u > "$keys_file"
+    
+    # Count total unique keys
+    local total=$(wc -l < "$keys_file")
+    
+    # Build JSON file
+    {
+        echo '{'
+        echo '  "used_names": {'
+        
+        # Process keys from file
+        local first=true
+        while IFS= read -r key; do
+            if [[ -n "$key" ]]; then
+                # Get value from appropriate array
+                local value=""
+                if [[ -n "${SESSION_NAMES[$key]:-}" ]]; then
+                    value="${SESSION_NAMES[$key]}"
+                elif [[ -n "${USED_NAMES[$key]:-}" ]]; then
+                    value="${USED_NAMES[$key]}"
+                fi
+                
+                if [[ -n "$value" ]]; then
+                    if [[ "$first" == "true" ]]; then
+                        first=false
+                    else
+                        echo ","
+                    fi
+                    # Escape for JSON
+                    local escaped_key=$(printf '%s' "$key" | sed 's/\\/\\\\/g; s/"/\\"/g')
+                    local escaped_value=$(printf '%s' "$value" | sed 's/\\/\\\\/g; s/"/\\"/g')
+                    printf '    "%s": "%s"' "$escaped_key" "$escaped_value"
+                fi
+            fi
+        done < "$keys_file"
+        
+        echo
+        echo '  },'
+        
+        # Add metadata
+        local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        echo "  \"last_run\": \"$timestamp\","
+        echo "  \"total_generated\": $total"
+        echo '}'
+    } > "$temp_file"
+    
+    # Validate and save
+    if jq '.' "$temp_file" > "$STATE_FILE" 2>/dev/null; then
+        # Count session entries
+        local session_count=0
+        if [[ ${#SESSION_NAMES[@]} -gt 0 ]]; then
+            session_count=${#SESSION_NAMES[@]}
+        fi
+        
+        echo ";; State saved: $session_count new names added this session" >&2
+        echo ";; Total names tracked: $total" >&2
+        
+        # Clear SESSION_NAMES and update USED_NAMES for next run
+        while IFS= read -r key; do
+            if [[ -n "$key" ]]; then
+                if [[ -n "${SESSION_NAMES[$key]:-}" ]]; then
+                    USED_NAMES["$key"]="${SESSION_NAMES[$key]}"
+                fi
+            fi
+        done < "$keys_file"
+        SESSION_NAMES=()
+    else
+        echo "ERROR: Failed to save state" >&2
+        echo "Debug: Invalid JSON in $temp_file" >&2
+    fi
+    
+    # Clean up temp files
+    rm -f "$temp_file" "$keys_file"
 }
 
 # --- STATE QUERY OPERATIONS ---
@@ -86,9 +149,9 @@ state_save() {
 # Check if a name exists in state
 state_exists() {
     local name="$1"
-
+    
     # Check both persistent and session state
-    if [[ -n "${USED_NAMES[$name]}" ]] || [[ -n "${SESSION_NAMES[$name]}" ]]; then
+    if [[ -n "${USED_NAMES[$name]:-}" ]] || [[ -n "${SESSION_NAMES[$name]:-}" ]]; then
         return 0
     else
         return 1
@@ -100,126 +163,146 @@ state_add() {
     local name="$1"
     local ip="$2"
     local metadata="${3:-}"
-
+    
     # Add to session names
     if [[ -n "$metadata" ]]; then
         SESSION_NAMES["$name"]="${ip}|${metadata}"
     else
         SESSION_NAMES["$name"]="$ip"
     fi
-
+    
     STATE_MODIFIED=true
 }
 
 # Get total count of tracked names
 state_count() {
-    echo $(( ${#USED_NAMES[@]} + ${#SESSION_NAMES[@]} ))
+    local used_count=0
+    local session_count=0
+    
+    if [[ ${#USED_NAMES[@]} -gt 0 ]]; then
+        used_count=${#USED_NAMES[@]}
+    fi
+    
+    if [[ ${#SESSION_NAMES[@]} -gt 0 ]]; then
+        session_count=${#SESSION_NAMES[@]}
+    fi
+    
+    echo $((used_count + session_count))
 }
 
 # --- STATE MAINTENANCE ---
 
-# Clean old entries (optional retention policy)
 state_cleanup() {
-    local days="${1:-365}"  # Default: keep for 1 year
-    local cutoff_date=$(date -d "$days days ago" +%s)
-    local cleaned=0
-
-    # This would require storing timestamps with each entry
-    # For now, this is a placeholder for future enhancement
+    local days="${1:-365}"
     echo ";; State cleanup not yet implemented" >&2
 }
 
-# Export state for analysis
 state_export() {
     local export_file="${1:-state_export.txt}"
-
     {
         echo "# State export generated at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
         echo "# Format: FQDN|IP|Metadata"
         echo
-
-        # Export persistent names
-        for key in "${!USED_NAMES[@]}"; do
-            echo "$key|${USED_NAMES[$key]}"
-        done | sort
-
-        echo
-        echo "# Session names (not yet persisted)"
-
-        # Export session names
-        for key in "${!SESSION_NAMES[@]}"; do
-            echo "$key|${SESSION_NAMES[$key]}"
-        done | sort
+        
+        # Use temporary file to avoid array issues
+        local temp_keys=$(mktemp)
+        
+        # Dump all keys
+        {
+            for key in "${!USED_NAMES[@]}"; do
+                echo "$key|${USED_NAMES[$key]}"
+            done
+            
+            for key in "${!SESSION_NAMES[@]}"; do
+                echo "$key|${SESSION_NAMES[$key]}"
+            done
+        } | sort > "$temp_keys"
+        
+        cat "$temp_keys"
+        rm -f "$temp_keys"
+        
     } > "$export_file"
-
+    
     echo ";; State exported to $export_file" >&2
 }
 
 # --- COLLISION DETECTION ---
 
-# Find similar names (for avoiding patterns)
 find_similar_names() {
     local prefix="$1"
     local max_results="${2:-10}"
-    local similar=()
-
-    # Check both arrays
-    for key in "${!USED_NAMES[@]}" "${!SESSION_NAMES[@]}"; do
-        if [[ "$key" == "$prefix"* ]]; then
-            similar+=("$key")
-        fi
-    done
-
-    # Return unique results
-    printf '%s\n' "${similar[@]}" | sort -u | head -n "$max_results"
+    
+    {
+        for key in "${!USED_NAMES[@]}"; do
+            if [[ "$key" == "$prefix"* ]]; then
+                echo "$key"
+            fi
+        done
+        
+        for key in "${!SESSION_NAMES[@]}"; do
+            if [[ "$key" == "$prefix"* ]]; then
+                echo "$key"
+            fi
+        done
+    } | sort -u | head -n "$max_results"
 }
 
-# Check pattern frequency
 check_pattern_frequency() {
     local pattern="$1"
-    local count=0
-
-    for key in "${!USED_NAMES[@]}" "${!SESSION_NAMES[@]}"; do
-        if [[ "$key" =~ $pattern ]]; then
-            ((count++))
-        fi
-    done
-
-    echo "$count"
+    
+    # Count in temporary file to avoid issues
+    {
+        for key in "${!USED_NAMES[@]}"; do
+            if [[ "$key" =~ $pattern ]]; then
+                echo "x"
+            fi
+        done
+        
+        for key in "${!SESSION_NAMES[@]}"; do
+            if [[ "$key" =~ $pattern ]]; then
+                echo "x"
+            fi
+        done
+    } | wc -l
 }
 
 # --- STATISTICS ---
 
-# Generate state statistics
 state_stats() {
-    local total_persistent=${#USED_NAMES[@]}
-    local total_session=${#SESSION_NAMES[@]}
+    local total_persistent=0
+    local total_session=0
+    
+    if [[ ${#USED_NAMES[@]} -gt 0 ]]; then
+        total_persistent=${#USED_NAMES[@]}
+    fi
+    
+    if [[ ${#SESSION_NAMES[@]} -gt 0 ]]; then
+        total_session=${#SESSION_NAMES[@]}
+    fi
+    
     local total=$((total_persistent + total_session))
-
-    # Analyze naming patterns
-    local style_counts=()
-    local prefixes=()
-
+    
     echo "=== State Statistics ===" >&2
     echo "Total names tracked: $total" >&2
     echo "  Persistent: $total_persistent" >&2
     echo "  Session: $total_session" >&2
     echo >&2
-
-    # Domain distribution
+    
     echo "Domain distribution:" >&2
     (
-        for key in "${!USED_NAMES[@]}" "${!SESSION_NAMES[@]}"; do
+        for key in "${!USED_NAMES[@]}"; do
             echo "$key" | cut -d. -f2-
-        done | sort | uniq -c | sort -rn | head -10
-    ) >&2
-
+        done
+        for key in "${!SESSION_NAMES[@]}"; do
+            echo "$key" | cut -d. -f2-
+        done
+    ) | sort | uniq -c | sort -rn | head -10 >&2
+    
     echo >&2
 }
 
 # --- RECOVERY OPERATIONS ---
 
-# Backup state file
 state_backup() {
     if [[ -f "$STATE_FILE" ]]; then
         local backup_name="${STATE_FILE}.backup.$(date +%s)"
@@ -228,40 +311,36 @@ state_backup() {
     fi
 }
 
-# Validate state file integrity
 state_validate() {
     if [[ ! -f "$STATE_FILE" ]]; then
         echo "ERROR: State file not found" >&2
         return 1
     fi
-
-    # Check JSON validity
+    
     if ! jq empty "$STATE_FILE" 2>/dev/null; then
         echo "ERROR: State file is not valid JSON" >&2
         return 1
     fi
-
-    # Check required fields
+    
     local has_used_names=$(jq 'has("used_names")' "$STATE_FILE")
     local has_last_run=$(jq 'has("last_run")' "$STATE_FILE")
     local has_total=$(jq 'has("total_generated")' "$STATE_FILE")
-
+    
     if [[ "$has_used_names" != "true" ]] || \
        [[ "$has_last_run" != "true" ]] || \
        [[ "$has_total" != "true" ]]; then
         echo "ERROR: State file missing required fields" >&2
         return 1
     fi
-
+    
     echo ";; State file validation passed" >&2
     return 0
 }
 
-# Emergency state recovery
 state_recover() {
     local backup_pattern="${STATE_FILE}.backup.*"
     local latest_backup=$(ls -t $backup_pattern 2>/dev/null | head -1)
-
+    
     if [[ -n "$latest_backup" ]] && [[ -f "$latest_backup" ]]; then
         echo ";; Attempting to recover from $latest_backup" >&2
         cp "$latest_backup" "$STATE_FILE"
