@@ -14,6 +14,8 @@ if [[ ! -f "config.sh" ]] || [[ ! -d "existing_scripts" ]]; then
 fi
 
 PROJECT_ROOT="$(pwd)"
+MODULES_DIR="$PROJECT_ROOT/modules"
+PREVIOUS_RUNS_DIR="$PROJECT_ROOT/previous_runs"
 
 # Source configuration if it exists
 if [[ -f "config.sh" ]]; then
@@ -482,10 +484,11 @@ clean_files() {
     echo
     
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        rm -f "$PROJECT_ROOT/existing_scripts/generate-enhanced/cidrs.txt"
-        rm -f "$PROJECT_ROOT"/generated/*
-        rm -f "$PROJECT_ROOT"/parsed/*
-        rm -f "$PROJECT_ROOT"/output/*
+        rm -rf "$PROJECT_ROOT/existing_scripts/generate-enhanced/cidrs.txt"
+        rm -rf "$PROJECT_ROOT"/generated/*
+        rm -rf "$PROJECT_ROOT"/parsed/*
+        rm -rf "$PROJECT_ROOT"/output/*
+        rm -rf "$PROJECT_ROOT"/logs/*
         echo -e "${GREEN}✓ Files cleaned${NC}"
     fi
     
@@ -539,7 +542,16 @@ while true; do
         4)
             generate_powermta_configs || true
             ;;
-        5|6|7|8)
+        5)
+            echo ""
+            echo "Running DKIM Key Generator..."
+            if [[ -f "$MODULES_DIR/dkim_generator.sh" ]]; then
+                "$MODULES_DIR/dkim_generator.sh"
+            else
+                echo "Error: DKIM generator module not found"
+            fi
+            ;;
+        6|7|8)
             echo "Not yet implemented"
             ;;
         9)
