@@ -98,7 +98,7 @@ show_menu() {
     echo "  1) Convert new.csv to cidrs.txt"
     echo "  2) Run Enhanced Generator (cidrs.txt → hostnames.zone)"
     echo "  3) Parse Zone File (hostnames.zone → parsed/)"
-    echo "  4) Generate PowerMTA Configs (per domain)"
+    echo "  4) Generate infrastructure.json (Master File)"
     echo "  5) Generate DKIM Keys"
     echo "  6) Create DNS updates.txt"
     echo "  7) Create Mailboxes"
@@ -537,10 +537,20 @@ while true; do
             run_enhanced_generator || true
             ;;
         3)
-            parse_zone_file || true
+            if [[ -f "$MODULES_DIR/zone_parser.sh" ]]; then
+                "$MODULES_DIR/zone_parser.sh"
+            else
+                echo "Error: zone_parser.sh module not found"
+            fi
             ;;
         4)
-            generate_powermta_configs || true
+            echo ""
+            echo "Generating Infrastructure.json..."
+            if [[ -f "$MODULES_DIR/infrastructure_generator.sh" ]]; then
+                "$MODULES_DIR/infrastructure_generator.sh"
+            else
+                echo "Error: infrastructure_generator.sh module not found"
+            fi
             ;;
         5)
             echo ""

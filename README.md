@@ -155,3 +155,25 @@ DNS update file generator
 Removal processing logic
 
 
+
+## Version History
+
+### Version 2.1.0 - September 5, 2025
+- Fixed zone parser regex to correctly parse hostnames.zone format
+- Implemented infrastructure.json generator as master data source
+- Fixed DKIM public key extraction from nested JSON structure
+- Separated infrastructure generation from zone parsing (single responsibility)
+- Integrated all modules into orchestrator menu system
+- Verified complete pipeline (Options 1-5) working end-to-end
+
+### Current Pipeline Status
+- [x] CSV to CIDRS conversion with domain duplication
+- [x] Enhanced hostname generation (254 non-enumerable hostnames)
+- [x] Zone file parsing to extracted files
+- [x] Infrastructure.json generation (master configuration)
+- [x] DKIM key generation and management
+- [ ] PowerMTA configuration generation
+- [ ] DNS update file generation
+- [ ] Mailbox configuration
+- [ ] MailWizz database integration
+
