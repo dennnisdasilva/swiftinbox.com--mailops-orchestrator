@@ -34,7 +34,6 @@ NC='\033[0m'
 
 # Debug mode
 DEBUG_MODE=false
-export DEBUG_MODE
 if [[ "${1:-}" == "--debug" ]]; then
     DEBUG_MODE=true
     echo -e "${MAGENTA}[DEBUG MODE ENABLED]${NC}"
@@ -98,9 +97,9 @@ show_menu() {
     echo ""
     echo "  1) Convert new.csv to cidrs.txt"
     echo "  2) Run Enhanced Generator (cidrs.txt → hostnames.zone)"
-    echo "  3) Generate DKIM Keys"
-    echo "  4) Parse Zone File (hostnames.zone → parsed/)"
-    echo "  5) Generate infrastructure.json (Master File)"
+    echo "  3) Parse Zone File (hostnames.zone → parsed/)"
+    echo "  4) Generate PowerMTA Configs (per domain)"
+    echo "  5) Generate DKIM Keys"
     echo "  6) Create DNS updates.txt"
     echo "  7) Create Mailboxes"
     echo "  8) Update MailWizz Database"
@@ -533,22 +532,28 @@ while true; do
     case $choice in
         1)
             convert_csv_to_cidrs || true
+            read -p "Press Enter to continue..."
             ;;
         2)
             run_enhanced_generator || true
+            read -p "Press Enter to continue..."
             ;;
         3)
             echo ""
+            echo "Running DKIM Key Generator..."
             source "$MODULES_DIR/dkim_generator.sh"
+            read -p "Press Enter to continue..."
             ;;
         4)
             echo ""
             source "$MODULES_DIR/zone_parser.sh"
+            read -p "Press Enter to continue..."
             ;;
         5)
             echo ""
             echo "Generating Infrastructure.json..."
             source "$MODULES_DIR/infrastructure_generator.sh"
+            read -p "Press Enter to continue..."
             ;;
         6|7|8)
             echo "Not yet implemented"
@@ -560,6 +565,7 @@ while true; do
             ;;
         10)
             clean_files || true
+            read -p "Press Enter to continue..."
             ;;
         11)
             view_logs || true

@@ -10,7 +10,7 @@ set -euo pipefail
 # Configuration
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-DEBUG="${DEBUG:-false}"
+DEBUG="${DEBUG_MODE:-false}"
 
 # Paths
 INPUT_CSV="$PROJECT_ROOT/input/new.csv"
@@ -84,13 +84,13 @@ log_info "Verifying prerequisites..."
 
 if ! command -v openssl &> /dev/null; then
     log_error "OpenSSL is not installed or not in PATH"
-    exit 1
+    return 1
 fi
 log_debug "OpenSSL version: $(openssl version)"
 
 if [[ ! -f "$INPUT_CSV" ]]; then
     log_error "Input CSV not found at: $INPUT_CSV"
-    exit 1
+    return 1
 fi
 log_debug "Input CSV exists with $(wc -l < "$INPUT_CSV") lines"
 
@@ -292,7 +292,7 @@ if [[ $domain_count -eq 0 ]]; then
     echo ""
     echo "Example new.csv content:"
     echo "192.168.1.0/24,realdomain1.com,realdomain2.com,realdomain3.com"
-    exit 0
+    return 0
 fi
 
 # Step 4: Initialize tracking JSON
@@ -509,13 +509,8 @@ echo "  Main: $LOG_FILE"
 
 if [[ $domain_count -gt 0 ]]; then
     echo ""
-    echo "Next Steps:"
-    echo "1. Verify keys in $PMTA_KEYS_DIR"
-    echo "2. Run Script 4 to generate infrastructure.json"
-    echo "3. Add DNS records from $KEYS_DIR/dns_records/"
 else
     echo ""
-    echo "Next Steps:"
     echo "1. Add real domains to input/new.csv"
     echo "2. Re-run this script"
 fi
@@ -548,4 +543,4 @@ if [[ "$DEBUG" == "true" ]]; then
     echo "  Disk usage: $(du -sh "$KEYS_DIR" 2>/dev/null | cut -f1 || echo 'N/A')"
 fi
 
-exit 0
+return 0

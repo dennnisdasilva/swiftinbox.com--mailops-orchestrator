@@ -6,7 +6,7 @@ set -euo pipefail
 # Get project root
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-DEBUG="${DEBUG:-false}"
+DEBUG="${DEBUG_MODE:-false}"
 
 # Parse command line arguments
 if [[ "${1:-}" == "--debug" ]]; then
@@ -48,17 +48,17 @@ log_info "Checking prerequisites"
 
 if [[ ! -d "$PARSED_DIR" ]] || [[ ! -f "$PARSED_DIR/ip.txt" ]]; then
     log_error "Parsed files not found. Run zone parser first."
-    exit 1
+    return 1
 fi
 
 if [[ ! -f "$INPUT_CSV" ]]; then
     log_error "Input CSV not found at $INPUT_CSV"
-    exit 1
+    return 1
 fi
 
 if [[ ! -f "$DKIM_DATA" ]]; then
     log_error "DKIM data not found. Run DKIM generator first."
-    exit 1
+    return 1
 fi
 
 # Create output directory
@@ -284,7 +284,7 @@ if command -v jq >/dev/null 2>&1; then
         echo "Domain configs: $(jq '.domain_configurations | length' "$OUTPUT_JSON")"
     else
         log_error "JSON validation failed"
-        exit 1
+        return 1
     fi
 else
     log_info "jq not installed, skipping JSON validation"

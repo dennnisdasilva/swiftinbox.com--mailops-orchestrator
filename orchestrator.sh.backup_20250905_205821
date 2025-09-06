@@ -34,7 +34,6 @@ NC='\033[0m'
 
 # Debug mode
 DEBUG_MODE=false
-export DEBUG_MODE
 if [[ "${1:-}" == "--debug" ]]; then
     DEBUG_MODE=true
     echo -e "${MAGENTA}[DEBUG MODE ENABLED]${NC}"
@@ -98,9 +97,9 @@ show_menu() {
     echo ""
     echo "  1) Convert new.csv to cidrs.txt"
     echo "  2) Run Enhanced Generator (cidrs.txt → hostnames.zone)"
-    echo "  3) Generate DKIM Keys"
-    echo "  4) Parse Zone File (hostnames.zone → parsed/)"
-    echo "  5) Generate infrastructure.json (Master File)"
+    echo "  3) Parse Zone File (hostnames.zone → parsed/)"
+    echo "  4) Generate PowerMTA Configs (per domain)"
+    echo "  5) Generate DKIM Keys"
     echo "  6) Create DNS updates.txt"
     echo "  7) Create Mailboxes"
     echo "  8) Update MailWizz Database"
@@ -538,36 +537,34 @@ while true; do
             run_enhanced_generator || true
             ;;
         3)
-            echo ""
-            source "$MODULES_DIR/dkim_generator.sh"
+            parse_zone_file || true
             ;;
         4)
-            echo ""
-            source "$MODULES_DIR/zone_parser.sh"
+            generate_powermta_configs || true
             ;;
         5)
             echo ""
-            echo "Generating Infrastructure.json..."
-            source "$MODULES_DIR/infrastructure_generator.sh"
+            echo "Running DKIM Key Generator..."
+            if [[ -f "$MODULES_DIR/dkim_generator.sh" ]]; then
+                "$MODULES_DIR/dkim_generator.sh"
+            else
+                echo "Error: DKIM generator module not found"
+            fi
             ;;
         6|7|8)
             echo "Not yet implemented"
-            read -p "Press Enter to continue..."
             ;;
         9)
             check_prerequisites || true
-            read -p "Press Enter to continue..."
             ;;
         10)
             clean_files || true
             ;;
         11)
             view_logs || true
-            read -p "Press Enter to continue..."
             ;;
         12)
             toggle_debug || true
-            read -p "Press Enter to continue..."
             ;;
         0)
             echo "Exiting..."
@@ -575,7 +572,6 @@ while true; do
             ;;
         *)
             echo -e "${RED}Invalid option${NC}"
-            read -p "Press Enter to continue..."
             ;;
     esac
 

@@ -6,7 +6,7 @@ set -euo pipefail
 # Get project root
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-DEBUG="${DEBUG_MODE:-false}"
+DEBUG="${DEBUG:-false}"
 
 # Parse command line arguments
 if [[ "${1:-}" == "--debug" ]]; then
@@ -47,7 +47,7 @@ echo ""
 if [[ ! -f "$HOSTNAMES_ZONE" ]]; then
     log_error "hostnames.zone not found at $HOSTNAMES_ZONE"
     echo "Please run Enhanced Generator first (Option 2)"
-    return 1
+    exit 1
 fi
 
 log_info "Parsing zone file: $HOSTNAMES_ZONE"
@@ -175,31 +175,8 @@ fi
 # Validation
 if [[ $record_count -eq 254 ]]; then
     log_success "Zone parsing completed successfully (254 records as expected)"
-    return 0
+    exit 0
 else
-# Calculate expected records from cidrs.txt
-expected_records=0
-if [[ -f "$PROJECT_ROOT/existing_scripts/generate-enhanced/cidrs.txt" ]]; then
-    while IFS=, read -r cidr rest; do
-        [[ -z "$cidr" || "${cidr:0:1}" == "#" ]] && continue
-        mask="${cidr##*/}"
-        case $mask in
-            24) expected_records=$((expected_records + 254)) ;;
-            25) expected_records=$((expected_records + 126)) ;;
-            26) expected_records=$((expected_records + 62)) ;;
-            27) expected_records=$((expected_records + 30)) ;;
-            28) expected_records=$((expected_records + 14)) ;;
-            29) expected_records=$((expected_records + 6)) ;;
-            30|31) expected_records=$((expected_records + 2)) ;;
-            32) expected_records=$((expected_records + 1)) ;;
-        esac
-    done < "$PROJECT_ROOT/existing_scripts/generate-enhanced/cidrs.txt"
-fi
-
-if [[ $expected_records -ne $record_count ]]; then
-    log_error "Warning: Expected $expected_records records but parsed $record_count"
-    return 1
-else
-    log_success "Successfully parsed all $record_count expected records"
-fi
+    log_error "Warning: Expected 254 records but parsed $record_count"
+    exit 1
 fi

@@ -34,7 +34,6 @@ NC='\033[0m'
 
 # Debug mode
 DEBUG_MODE=false
-export DEBUG_MODE
 if [[ "${1:-}" == "--debug" ]]; then
     DEBUG_MODE=true
     echo -e "${MAGENTA}[DEBUG MODE ENABLED]${NC}"
@@ -88,19 +87,19 @@ show_menu() {
     echo -e "${BOLD}${BLUE}============================================${NC}"
     echo -e "${BOLD}${BLUE}       MailOps Orchestrator Menu${NC}"
     echo -e "${BOLD}${BLUE}============================================${NC}"
-
+    
     if $DEBUG_MODE; then
         echo -e "${MAGENTA}         [DEBUG MODE ACTIVE]${NC}"
     fi
-
+    
     echo ""
     echo -e "${CYAN}Pipeline Steps:${NC}"
     echo ""
     echo "  1) Convert new.csv to cidrs.txt"
     echo "  2) Run Enhanced Generator (cidrs.txt → hostnames.zone)"
-    echo "  3) Generate DKIM Keys"
-    echo "  4) Parse Zone File (hostnames.zone → parsed/)"
-    echo "  5) Generate infrastructure.json (Master File)"
+    echo "  3) Parse Zone File (hostnames.zone → parsed/)"
+    echo "  4) Generate infrastructure.json (Master File)"
+    echo "  5) Generate DKIM Keys"
     echo "  6) Create DNS updates.txt"
     echo "  7) Create Mailboxes"
     echo "  8) Update MailWizz Database"
@@ -124,7 +123,7 @@ show_menu() {
 convert_csv_to_cidrs() {
     verbose "Starting CSV to CIDRS conversion with domain duplication"
     echo -e "${CYAN}Converting new.csv to cidrs.txt...${NC}"
-
+    
     # Check input file
     debug "Checking for input file: input/new.csv"
     if [[ ! -f "input/new.csv" ]]; then
@@ -132,62 +131,62 @@ convert_csv_to_cidrs() {
         echo -e "${RED}Error: input/new.csv not found${NC}"
         return 1
     fi
-
+    
     # Get file stats
     local line_count=$(wc -l < input/new.csv)
     debug "Input file has $line_count lines"
-
+    
     # Where enhanced generator expects the file
     CIDRS_OUTPUT="$PROJECT_ROOT/existing_scripts/generate-enhanced/cidrs.txt"
-
+    
     # Create timestamped archive copy
     mkdir -p "$PROJECT_ROOT/generated"
     ARCHIVE_COPY="$PROJECT_ROOT/generated/$(date +%Y%m%d_%H%M%S)_cidrs.txt"
-
+    
     verbose "Output will be saved to: $CIDRS_OUTPUT"
     verbose "Archive copy will be saved to: $ARCHIVE_COPY"
-
+    
     # Remove existing cidrs.txt
     if [[ -f "$CIDRS_OUTPUT" ]]; then
         debug "Removing existing cidrs.txt"
         rm -f "$CIDRS_OUTPUT"
     fi
-
+    
     # Create new cidrs.txt with proper format
     {
         echo "# Generated from new.csv"
         echo "# $(date)"
         echo ""
     } > "$CIDRS_OUTPUT"
-
+    
     # Parse CSV and convert to CIDRS format with domain duplication
     debug "Processing CSV rows with domain duplication..."
     local processed=0
     local skipped=0
     local line_num=0
-
+    
     while IFS=',' read -r action ip_range domain1 domain2 domain3 domain4 domain5 domain6 domain7 domain8; do
         ((line_num++))
-
+        
         # Skip header
         if [[ $line_num -eq 1 ]]; then
             debug "Skipping header row"
             continue
         fi
-
+        
         debug "Processing line $line_num: action=$action, ip=$ip_range"
-
+        
         # Only process 'add' actions
         if [[ "$action" != "add" ]]; then
             debug "  Skipping action: $action"
             ((skipped++))
             continue
         fi
-
+        
         # Extract CIDR mask
         local mask="${ip_range#*/}"
         debug "  CIDR mask: /$mask"
-
+        
         # Determine required domain count based on mask
         local required_domains=1
         case $mask in
@@ -204,9 +203,9 @@ convert_csv_to_cidrs() {
                 required_domains=1
                 ;;
         esac
-
+        
         debug "  Mask /$mask requires $required_domains domains"
-
+        
         # Collect existing domains
         local domains_array=()
         for domain in "$domain1" "$domain2" "$domain3" "$domain4" "$domain5" "$domain6" "$domain7" "$domain8"; do
@@ -215,10 +214,10 @@ convert_csv_to_cidrs() {
                 domains_array+=("$domain")
             fi
         done
-
+        
         local actual_count=${#domains_array[@]}
         debug "  Found $actual_count domains, need $required_domains"
-
+        
         # Build domain list with duplication if needed
         local final_domains=""
         if [[ $actual_count -gt 0 ]]; then
@@ -231,36 +230,36 @@ convert_csv_to_cidrs() {
                     final_domains="${final_domains},${domains_array[$domain_index]}"
                 fi
             done
-
+            
             debug "  Final domain list: $final_domains"
             echo "${ip_range},${final_domains}" >> "$CIDRS_OUTPUT"
             ((processed++))
         else
             debug "  WARNING: No domains for $ip_range"
         fi
-
+        
     done < input/new.csv
-
+    
     # Create archive copy
     cp "$CIDRS_OUTPUT" "$ARCHIVE_COPY"
-
+    
     # Get output stats
     local output_lines=$(grep -v '^#' "$CIDRS_OUTPUT" | grep -v '^$' | wc -l)
-
+    
     verbose "Conversion complete: $processed added, $skipped skipped"
-
+    
     echo -e "${GREEN}✓ Created cidrs.txt with domain duplication${NC}"
     echo "  Location: $CIDRS_OUTPUT"
     echo "  Archive: $ARCHIVE_COPY"
     echo "  Entries: $output_lines"
-
+    
     if $DEBUG_MODE && [[ $output_lines -gt 0 ]]; then
         debug "First 3 entries:"
         grep -v '^#' "$CIDRS_OUTPUT" | head -3 | while IFS= read -r line; do
             debug "  $line"
         done
     fi
-
+    
     return 0
 }
 
@@ -271,10 +270,10 @@ convert_csv_to_cidrs() {
 run_enhanced_generator() {
     verbose "Starting Enhanced Generator"
     echo -e "${CYAN}Running Enhanced Generator...${NC}"
-
+    
     # Check for cidrs.txt in the location where generator expects it
     CIDRS_FILE="$PROJECT_ROOT/existing_scripts/generate-enhanced/cidrs.txt"
-
+    
     debug "Checking for cidrs.txt at: $CIDRS_FILE"
     if [[ ! -f "$CIDRS_FILE" ]]; then
         error_log "cidrs.txt not found at $CIDRS_FILE"
@@ -283,61 +282,61 @@ run_enhanced_generator() {
         echo "  Run step 1 first"
         return 1
     fi
-
+    
     local cidr_lines=$(grep -v '^#' "$CIDRS_FILE" | grep -v '^$' | wc -l)
     debug "Input has $cidr_lines CIDR entries"
-
+    
     # Check generator exists
     GENERATOR_SCRIPT="$PROJECT_ROOT/existing_scripts/generate-enhanced/generate-enhanced.sh"
     debug "Checking for generator at: $GENERATOR_SCRIPT"
-
+    
     if [[ ! -f "$GENERATOR_SCRIPT" ]]; then
         error_log "Enhanced generator not found"
         echo -e "${RED}Error: Enhanced generator not found${NC}"
         return 1
     fi
-
+    
     # Ensure it's executable
     if [[ ! -x "$GENERATOR_SCRIPT" ]]; then
         debug "Making generator executable"
         chmod +x "$GENERATOR_SCRIPT"
     fi
-
+    
     # Save current directory
     local SAVED_DIR=$(pwd)
     debug "Saved current directory: $SAVED_DIR"
-
+    
     # Change to generator directory (it expects to run from there)
     debug "Changing to generator directory"
     cd "$PROJECT_ROOT/existing_scripts/generate-enhanced"
-
+    
     echo "Executing generator..."
     verbose "Running: ./generate-enhanced.sh cidrs.txt"
-
+    
     # Create output directory if needed
     mkdir -p "$PROJECT_ROOT/generated"
-
+    
     local start_time=$(date +%s)
-
+    
     # Run generator with absolute paths for output
     if ./generate-enhanced.sh cidrs.txt > "$PROJECT_ROOT/generated/hostnames.zone" 2>"$PROJECT_ROOT/logs/generator.log"; then
         local end_time=$(date +%s)
         local duration=$((end_time - start_time))
-
+        
         # Return to original directory
         cd "$SAVED_DIR"
-
+        
         verbose "Generator completed in ${duration}s"
-
+        
         # Check output
         if [[ -s "$PROJECT_ROOT/generated/hostnames.zone" ]]; then
             local record_count=$(grep -c 'IN A' "$PROJECT_ROOT/generated/hostnames.zone" || echo 0)
             debug "Generated $record_count A records"
-
+            
             echo -e "${GREEN}✓ Generated hostnames.zone${NC}"
             echo "  Records: $record_count"
             echo "  Duration: ${duration}s"
-
+            
             if $DEBUG_MODE && [[ $record_count -gt 0 ]]; then
                 debug "Sample records:"
                 grep 'IN A' "$PROJECT_ROOT/generated/hostnames.zone" | head -3 | while IFS= read -r line; do
@@ -355,7 +354,7 @@ run_enhanced_generator() {
         error_log "Generator failed"
         echo -e "${RED}✗ Generator failed${NC}"
         echo "  Check: $PROJECT_ROOT/logs/generator.log"
-
+        
         if $DEBUG_MODE; then
             debug "Last 5 lines of error log:"
             tail -5 "$PROJECT_ROOT/logs/generator.log" | while IFS= read -r line; do
@@ -364,7 +363,7 @@ run_enhanced_generator() {
         fi
         return 1
     fi
-
+    
     return 0
 }
 
@@ -375,65 +374,65 @@ run_enhanced_generator() {
 parse_zone_file() {
     verbose "Starting Zone File Parsing"
     echo -e "${CYAN}Parsing Zone File...${NC}"
-
+    
     if [[ ! -f "$PROJECT_ROOT/generated/hostnames.zone" ]]; then
         error_log "hostnames.zone not found"
         echo -e "${RED}Error: generated/hostnames.zone not found${NC}"
         echo "  Run step 2 first"
         return 1
     fi
-
+    
     local zone_records=$(grep -c 'IN A' "$PROJECT_ROOT/generated/hostnames.zone" || echo 0)
     debug "Zone file has $zone_records A records"
-
+    
     mkdir -p "$PROJECT_ROOT/parsed"
-
+    
     # Clear existing files
     debug "Clearing existing parsed files"
     for file in ip.txt hostname.txt domain.txt third_octet.txt fourth_octet.txt; do
         > "$PROJECT_ROOT/parsed/$file"
     done
-
+    
     echo "  Parsing $zone_records records..."
-
+    
     local parsed_count=0
-
+    
     # Parse each A record
     grep "IN A" "$PROJECT_ROOT/generated/hostnames.zone" | while read -r line; do
         hostname=$(echo "$line" | awk '{print $1}' | sed 's/\.$//')
         ip=$(echo "$line" | awk '{print $5}')
-
+        
         if [[ -n "$hostname" ]] && [[ -n "$ip" ]]; then
             domain=$(echo "$hostname" | rev | cut -d. -f1,2 | rev)
             third=$(echo "$ip" | cut -d. -f3)
             fourth=$(echo "$ip" | cut -d. -f4)
-
+            
             echo "$ip" >> "$PROJECT_ROOT/parsed/ip.txt"
             echo "$hostname" >> "$PROJECT_ROOT/parsed/hostname.txt"
             echo "$domain" >> "$PROJECT_ROOT/parsed/domain.txt"
             echo "$third" >> "$PROJECT_ROOT/parsed/third_octet.txt"
             echo "$fourth" >> "$PROJECT_ROOT/parsed/fourth_octet.txt"
-
+            
             ((parsed_count++))
-
+            
             if $DEBUG_MODE && [[ $((parsed_count % 100)) -eq 0 ]]; then
                 debug "  Parsed $parsed_count records..."
             fi
         fi
     done
-
+    
     # Create unique domain list
     sort -u "$PROJECT_ROOT/parsed/domain.txt" > "$PROJECT_ROOT/parsed/domain_unique.txt"
-
+    
     local ip_count=$(wc -l < "$PROJECT_ROOT/parsed/ip.txt")
     local domain_count=$(wc -l < "$PROJECT_ROOT/parsed/domain_unique.txt")
-
+    
     verbose "Parsed $ip_count IPs across $domain_count domains"
-
+    
     echo -e "${GREEN}✓ Created parsed files${NC}"
     echo "  IPs: $ip_count"
     echo "  Unique domains: $domain_count"
-
+    
     return 0
 }
 
@@ -448,7 +447,7 @@ generate_powermta_configs() {
 
 check_prerequisites() {
     echo -e "${CYAN}Checking Prerequisites...${NC}"
-
+    
     # Check directories
     for dir in input generated parsed output logs state existing_scripts; do
         if [[ -d "$PROJECT_ROOT/$dir" ]]; then
@@ -458,32 +457,32 @@ check_prerequisites() {
             mkdir -p "$PROJECT_ROOT/$dir"
         fi
     done
-
+    
     # Check files
     echo ""
     [[ -f "$PROJECT_ROOT/input/new.csv" ]] && echo -e "  ${GREEN}✓${NC} input/new.csv" || echo -e "  ${RED}✗${NC} input/new.csv"
     [[ -f "$PROJECT_ROOT/config.sh" ]] && echo -e "  ${GREEN}✓${NC} config.sh" || echo -e "  ${YELLOW}!${NC} config.sh (optional)"
-
+    
     # Check scripts
     echo ""
     [[ -f "$PROJECT_ROOT/existing_scripts/generate-enhanced/generate-enhanced.sh" ]] && \
         echo -e "  ${GREEN}✓${NC} Enhanced Generator" || echo -e "  ${RED}✗${NC} Enhanced Generator"
-
+    
     return 0
 }
 
 clean_files() {
     echo -e "${CYAN}Cleaning Generated Files...${NC}"
-
+    
     echo "This will remove:"
     echo "  - existing_scripts/generate-enhanced/cidrs.txt"
     echo "  - generated/*"
     echo "  - parsed/*"
     echo "  - output/*"
-
+    
     read -p "Continue? (y/N): " -n 1 -r
     echo
-
+    
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         rm -rf "$PROJECT_ROOT/existing_scripts/generate-enhanced/cidrs.txt"
         rm -rf "$PROJECT_ROOT"/generated/*
@@ -492,7 +491,7 @@ clean_files() {
         rm -rf "$PROJECT_ROOT"/logs/*
         echo -e "${GREEN}✓ Files cleaned${NC}"
     fi
-
+    
     return 0
 }
 
@@ -510,14 +509,14 @@ toggle_debug() {
 view_logs() {
     echo "Recent logs:"
     ls -lt "$PROJECT_ROOT/logs/" 2>/dev/null | head -10
-
+    
     if $DEBUG_MODE; then
         echo ""
         echo "Current session logs:"
         echo "  Main: $MAIN_LOG"
         echo "  Debug: $DEBUG_LOG"
     fi
-
+    
     return 0
 }
 
@@ -529,7 +528,7 @@ while true; do
     show_menu
     read -p "Select option: " choice
     echo ""
-
+    
     case $choice in
         1)
             convert_csv_to_cidrs || true
@@ -538,36 +537,44 @@ while true; do
             run_enhanced_generator || true
             ;;
         3)
-            echo ""
-            source "$MODULES_DIR/dkim_generator.sh"
+            if [[ -f "$MODULES_DIR/zone_parser.sh" ]]; then
+                "$MODULES_DIR/zone_parser.sh"
+            else
+                echo "Error: zone_parser.sh module not found"
+            fi
             ;;
         4)
             echo ""
-            source "$MODULES_DIR/zone_parser.sh"
+            echo "Generating Infrastructure.json..."
+            if [[ -f "$MODULES_DIR/infrastructure_generator.sh" ]]; then
+                "$MODULES_DIR/infrastructure_generator.sh"
+            else
+                echo "Error: infrastructure_generator.sh module not found"
+            fi
             ;;
         5)
             echo ""
-            echo "Generating Infrastructure.json..."
-            source "$MODULES_DIR/infrastructure_generator.sh"
+            echo "Running DKIM Key Generator..."
+            if [[ -f "$MODULES_DIR/dkim_generator.sh" ]]; then
+                "$MODULES_DIR/dkim_generator.sh"
+            else
+                echo "Error: DKIM generator module not found"
+            fi
             ;;
         6|7|8)
             echo "Not yet implemented"
-            read -p "Press Enter to continue..."
             ;;
         9)
             check_prerequisites || true
-            read -p "Press Enter to continue..."
             ;;
         10)
             clean_files || true
             ;;
         11)
             view_logs || true
-            read -p "Press Enter to continue..."
             ;;
         12)
             toggle_debug || true
-            read -p "Press Enter to continue..."
             ;;
         0)
             echo "Exiting..."
@@ -575,11 +582,9 @@ while true; do
             ;;
         *)
             echo -e "${RED}Invalid option${NC}"
-            read -p "Press Enter to continue..."
             ;;
     esac
-
+    
     echo ""
     read -p "Press Enter to continue..."
 done
-
